@@ -1,0 +1,6 @@
+*.pyc
+*.pyo
+.python-version
+*.sublime-project
+*.sublime-workspace
+.mypy_cache/
