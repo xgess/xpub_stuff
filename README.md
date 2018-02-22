@@ -38,5 +38,5 @@ python tests.py && mypy xpub_stuff
 
 ## Links
 Remember when websites used to have a page of links??
-* blog post: UPDATE-FOR-LINK
+* blog post: https://xgess.com/blog/230
 * full spec for extended keys: https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki
