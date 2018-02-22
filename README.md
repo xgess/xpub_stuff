@@ -32,7 +32,7 @@ python run_me.py
 
 Maybe something like this?
 ```shell
-python tests.py && mypy xpub_stuff && python run_me.py
+python tests.py && mypy xpub_stuff
 ```
 
 
