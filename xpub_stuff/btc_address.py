@@ -67,9 +67,9 @@ def serialize_parts(is_private: bool,
     else:
         version, indicator = PUBLIC_VERSION_PREFIX, b''
     serialized_bytes = version
-    serialized_bytes += unhexlify(int_to_bytes(depth, 2))
+    serialized_bytes += unhexlify(int_to_bytes(depth, 1))
     serialized_bytes += fingerprint
-    serialized_bytes += unhexlify(int_to_bytes(key_index, 8))
+    serialized_bytes += unhexlify(int_to_bytes(key_index, 4))
     serialized_bytes += chaincode
     serialized_bytes += indicator
     serialized_bytes += key
@@ -120,7 +120,7 @@ def address_from_public_key(public_key: str) -> str:
 
 
 def hmac_sha512(chaincode: NumberAsHexBytes, key: NumberAsHexBytes, key_index: int = 1) -> bytes:
-    formatted_index = int_to_bytes(key_index, 8)
+    formatted_index = int_to_bytes(key_index, 4)
     hmac_key = chaincode
     hmac_data = unhexlify(hexlify(key) + formatted_index)
     return hmac.new(hmac_key, hmac_data, hashlib.sha512).digest()
@@ -137,7 +137,7 @@ def hex_bytes_to_int(input_bytes: NumberAsHexBytes) -> int:
 
 
 def int_to_bytes(input_int: int, number_of_bytes: int) -> bytes:
-    return '{}'.format(int(input_int)).zfill(number_of_bytes).encode()
+    return '{}'.format(int(input_int)).zfill(number_of_bytes * 2).encode()
 
 
 def int_to_private_key(input_int: int) -> NumberAsHexBytes:
