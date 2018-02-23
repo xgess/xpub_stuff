@@ -3,6 +3,7 @@ import ecdsa
 from ecdsa.ecdsa import int_to_string
 import hashlib
 import hmac
+import struct
 from typing import NamedTuple
 
 from .base58 import bytes_to_base58check, hex_to_base58, base58_to_hex
@@ -18,6 +19,15 @@ FINITE_FIELD = p = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFF
 PUBLIC_VERSION_PREFIX = unhexlify('0488b21e')
 PRIVATE_VERSION_PREFIX = unhexlify('0488ade4')
 PRIVATE_KEY_INDICATOR = unhexlify('00')
+RAW_ELEMENTS_OF_EXTENDED_KEY = '>4s B 4s L 32s 33s'
+    # 4 bytes for the version prefix
+    # 1 byte for the depth
+    # 4 bytes for the fingerprint
+    # 4 bytes for the index
+    # 32 bytes for the chaincode
+    # 33 bytes for the indicator+key
+FULL_EXTENDED_KEY_FORMAT = RAW_ELEMENTS_OF_EXTENDED_KEY + ' 4s'
+    # 4 additional bytes for a checksum
 
 
 class ExtendedKey(NamedTuple):
@@ -34,24 +44,30 @@ class ExtendedKey(NamedTuple):
 
 def deserialize(base58_key: NumberAsBase58) -> ExtendedKey:
     as_hex = base58_to_hex(base58_key)
-    if as_hex[90:92] == hexlify(PRIVATE_KEY_INDICATOR):
+    struct_format = struct.Struct(FULL_EXTENDED_KEY_FORMAT)
+    unpacked_data = struct_format.unpack(unhexlify(as_hex))
+
+    first_byte_of_key = unpacked_data[5][:1]
+    if first_byte_of_key == PRIVATE_KEY_INDICATOR:
         #xprv
         is_private = True
-        indicator, hex_key = PRIVATE_KEY_INDICATOR, as_hex[92:156]
+        indicator = first_byte_of_key
+        key = unpacked_data[5][1:] # everything after the first byte
     else:
         #xpub
         is_private = False
-        indicator, hex_key = b'', as_hex[90:156]
+        indicator = b''
+        key = unpacked_data[5]
 
     return ExtendedKey(
-        magic_version=NumberAsHexBytes(as_hex[:8]),
-        depth=int(as_hex[8:10]),
-        fingerprint=NumberAsHexBytes(unhexlify(as_hex[10:18])),
-        key_index=int(as_hex[18:26]),
-        chaincode=NumberAsHexBytes(unhexlify(as_hex[26:90])),
+        magic_version=NumberAsHexBytes(unpacked_data[0]),
+        depth=unpacked_data[1],
+        fingerprint=NumberAsHexBytes(unpacked_data[2]),
+        key_index=unpacked_data[3],
+        chaincode=NumberAsHexBytes(unpacked_data[4]),
         indicator=NumberAsHexBytes(indicator),
-        key=NumberAsHexBytes(unhexlify(hex_key)),
-        checksum=NumberAsHexBytes(unhexlify(as_hex[156:164])),
+        key=NumberAsHexBytes(key),
+        checksum=NumberAsHexBytes(unpacked_data[6]),
         is_private=is_private
     )
 
@@ -66,13 +82,10 @@ def serialize_parts(is_private: bool,
         version, indicator = PRIVATE_VERSION_PREFIX, PRIVATE_KEY_INDICATOR
     else:
         version, indicator = PUBLIC_VERSION_PREFIX, b''
-    serialized_bytes = version
-    serialized_bytes += unhexlify(int_to_bytes(depth, 1))
-    serialized_bytes += fingerprint
-    serialized_bytes += unhexlify(int_to_bytes(key_index, 4))
-    serialized_bytes += chaincode
-    serialized_bytes += indicator
-    serialized_bytes += key
+
+    struct_format = struct.Struct(RAW_ELEMENTS_OF_EXTENDED_KEY)
+    parts = (version, depth, fingerprint, key_index, chaincode, indicator + key)
+    serialized_bytes = struct_format.pack(*parts)
 
     return bytes_to_base58check(NumberAsHexBytes(serialized_bytes))
 
